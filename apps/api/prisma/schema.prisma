@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TravelStyle {
+  LUXURY
+  BALANCED
+  ADVENTURE
+  CULTURE
+  RELAXED
+  FAMILY
+  REMOTE_WORK
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNING
+  BOOKED
+  ACTIVE
+  COMPLETED
+}
+
+enum TripVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+enum ActivityCategory {
+  FOOD
+  CULTURE
+  OUTDOORS
+  NIGHTLIFE
+  WELLNESS
+  SHOPPING
+  LANDMARK
+  EXPERIENCE
+  TRANSIT
+}
+
+enum BudgetCategory {
+  FLIGHTS
+  LODGING
+  FOOD
+  ACTIVITIES
+  TRANSIT
+  SHOPPING
+  BUFFER
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  trips Trip[]
+  notes Note[]
+
+  @@map("users")
+}
+
+model Trip {
+  id            String         @id @default(uuid()) @db.Uuid
+  ownerId       String         @map("owner_id") @db.Uuid
+  title         String
+  summary       String
+  startDate     DateTime       @map("start_date")
+  endDate       DateTime       @map("end_date")
+  budgetCents   Int            @map("budget_cents")
+  currency      String         @default("USD")
+  travelStyle   TravelStyle    @map("travel_style")
+  status        TripStatus     @default(PLANNING)
+  visibility    TripVisibility @default(PRIVATE)
+  coverImageUrl String?        @map("cover_image_url")
+  shareSlug     String         @unique @map("share_slug")
+  interests     String[]
+  aiBrief       Json           @map("ai_brief")
+  collaborators Json           @default("[]")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  stops          TripStop[]
+  itineraryItems ItineraryItem[]
+  budgets        Budget[]
+  packingItems   PackingItem[]
+  notes          Note[]
+
+  @@index([ownerId])
+  @@index([shareSlug])
+  @@map("trips")
+}
+
+model City {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  country            String
+  countryCode        String   @map("country_code")
+  timezone           String
+  latitude           Float
+  longitude          Float
+  imageUrl           String   @map("image_url")
+  description        String
+  avgDailyCostCents  Int      @map("avg_daily_cost_cents")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  activities Activity[]
+  stops      TripStop[]
+
+  @@unique([name, country])
+  @@map("cities")
+}
+
+model TripStop {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  cityId    String   @map("city_id") @db.Uuid
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  position  Int
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip           Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city           City            @relation(fields: [cityId], references: [id])
+  itineraryItems ItineraryItem[]
+
+  @@unique([tripId, position])
+  @@index([cityId])
+  @@map("trip_stops")
+}
+
+model Activity {
+  id              String           @id @default(uuid()) @db.Uuid
+  cityId          String           @map("city_id") @db.Uuid
+  title           String
+  description     String
+  category        ActivityCategory
+  tags            String[]
+  priceCents      Int              @map("price_cents")
+  durationMinutes Int              @map("duration_minutes")
+  neighborhood    String
+  bookingUrl      String?          @map("booking_url")
+  imageUrl        String           @map("image_url")
+  rating          Float
+  bestTimeOfDay   String           @map("best_time_of_day")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  city           City            @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  itineraryItems ItineraryItem[]
+
+  @@index([cityId])
+  @@index([category])
+  @@map("activities")
+}
+
+model ItineraryItem {
+  id            String           @id @default(uuid()) @db.Uuid
+  tripId        String           @map("trip_id") @db.Uuid
+  stopId        String?          @map("stop_id") @db.Uuid
+  activityId    String?          @map("activity_id") @db.Uuid
+  title         String
+  description   String
+  category      ActivityCategory
+  startTime     DateTime         @map("start_time")
+  endTime       DateTime         @map("end_time")
+  dayNumber     Int              @map("day_number")
+  position      Int
+  costCents     Int              @map("cost_cents")
+  bookingStatus String           @default("suggested") @map("booking_status")
+  notes         String?
+  metadata      Json             @default("{}")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  trip     Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop     TripStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, dayNumber, position])
+  @@index([stopId])
+  @@map("itinerary_items")
+}
+
+model Budget {
+  id           String         @id @default(uuid()) @db.Uuid
+  tripId       String         @map("trip_id") @db.Uuid
+  category     BudgetCategory
+  plannedCents Int            @map("planned_cents")
+  actualCents  Int            @default(0) @map("actual_cents")
+  currency     String         @default("USD")
+  notes        String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, category])
+  @@map("budgets")
+}
+
+model PackingItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  label     String
+  category  String
+  packed    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, category])
+  @@map("packing_items")
+}
+
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([authorId])
+  @@map("notes")
+}
