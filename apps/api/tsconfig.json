@@ -1,16 +1,35 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": ".",
+    "target": "ES2022",
+
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+
+    "outDir": "dist",
+    "rootDir": ".",
+
+    "strict": true,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+
+    "forceConsistentCasingInFileNames": true,
+
     "types": ["node"],
+
     "baseUrl": ".",
+
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+
+    "sourceMap": true
   },
+
   "include": ["src/**/*.ts", "prisma/**/*.ts"],
+
   "exclude": ["node_modules", "dist"]
 }
